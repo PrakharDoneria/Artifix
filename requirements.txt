@@ -1,0 +1,12 @@
+pyttsx3
+speechRecognition
+wikipedia
+gradio_client
+PyAudio
+flet
+google.generativeai
+numpy
+scipy
+clap-detector
+python-dotenv
+psutil
