@@ -3,345 +3,332 @@ import time
 import threading
 import pyttsx3
 import speech_recognition as sr
-import psutil
-import datetime
-from clapDetector import ClapDetector, printDeviceInfo
+import query_handle
+from clapDetector import ClapDetector
 
-class ArtifixChat:
+class ChatApp:
     def __init__(self):
         self.engine = None
         self.speech_lock = threading.Lock()
         self.setup_speech_engine()
         self.recognizer = sr.Recognizer()
-        self.clap_detector = ClapDetector(inputDevice=-1, logLevel=10)
-        self.clap_detector.initAudio()
-        self.is_listening_for_clap = True
-        self.setup_clap_detection()
-
+        self.clap_detector = None
+        self.setup_clap_detector()
+        
     def setup_speech_engine(self):
-        """Initialize the speech synthesis engine with retries."""
         try:
             self.engine = pyttsx3.init()
             voices = self.engine.getProperty('voices')
-            for voice in voices:
-                if "male" in voice.name.lower():
-                    self.engine.setProperty('voice', voice.id)
-                    break
-            else:
-                self.engine.setProperty('voice', voices[0].id)
-            
+            self.engine.setProperty('voice', voices[0].id)
             self.engine.setProperty('rate', 175)
-            self.engine.setProperty('volume', 1.0)
-            self.engine.say("System initialized")
-            self.engine.runAndWait()
         except Exception as e:
             print(f"Speech engine initialization error: {e}")
-            time.sleep(2)
-            self.setup_speech_engine()
-
-    def create_status_indicator(self, size: float = 10):
-        return ft.Container(
-            width=size,
-            height=size,
-            border_radius=size/2,
-            bgcolor="#007AFF",
-            animate=ft.animation.Animation(1000, "linear"),
-            animate_opacity=ft.animation.Animation(1000, "linear"),
-            opacity=1,
-        )
-
-    def get_system_time(self):
-        return datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-
-    def create_system_details(self):
+        
+    def setup_clap_detector(self):
         try:
-            battery = psutil.sensors_battery()
-            if battery:
-                battery_percent = battery.percent
-                battery_status = "Charging" if battery.power_plugged else "Discharging"
-                system_details = f"Battery: {battery_percent}% ({battery_status})"
-            else:
-                system_details = "Battery: N/A"
-            cpu_percent = psutil.cpu_percent()
-            memory = psutil.virtual_memory()
-            system_details += f" | CPU: {cpu_percent}% | RAM: {memory.percent}%"
-            return ft.Container(
-                content=ft.Text(system_details, size=12, color="#007AFF"),
-                padding=8,
-                bgcolor="#007AFF22",
-                border_radius=5,
-            )
+            # Initialize clap detector
+            self.clap_detector = ClapDetector(inputDevice=-1, logLevel=10)
+            self.clap_detector.initAudio()
+            threading.Thread(target=self.listen_for_claps, daemon=True).start()
         except Exception as e:
-            print(f"Error getting system details: {e}")
-            return ft.Container(
-                content=ft.Text("System Info Unavailable", size=12, color="#007AFF"),
-                padding=8,
-                bgcolor="#007AFF22",
-                border_radius=5,
-            )
+            print(f"Clap detection setup failed: {e}")
+        
+    def listen_for_claps(self):
+        """Listen for claps (single and double) and trigger corresponding response."""
+        thresholdBias = 6000
+        lowcut = 200
+        highcut = 3200
+        
+        try:
+            while True:
+                audioData = self.clap_detector.getAudio()
+                result = self.clap_detector.run(thresholdBias=thresholdBias, lowcut=lowcut, highcut=highcut, audioData=audioData)
+                
+                if len(result) == 1:
+                    self.handle_single_clap()  # Handle single clap
+                elif len(result) == 2:
+                    self.handle_double_clap()  # Handle double clap
+                
+                time.sleep(1/60)
+        except Exception as e:
+            print(f"Error during clap detection: {e}")
+        
+    def handle_single_clap(self):
+        """Respond to a single clap."""
+        print("Single clap detected!")
+        self.speak("Hello! How can I assist you today?")
 
-    def setup_clap_detection(self):
-        """Clap detection that triggers a response on double clap."""
-        def clap_detection_thread():
-            try:
-                while self.is_listening_for_clap:
-                    audio_data = self.clap_detector.getAudio()
-                    result = self.clap_detector.run(thresholdBias=6000, lowcut=200, highcut=3200, audioData=audio_data)
-                    if len(result) == 1:  
-                        self.add_message("Hey sir, I'm here to help you out.", False)
-                        self.speak("Hey sir, I'm here to help you out.")
-                    time.sleep(1/60)
-            except Exception as e:
-                print(f"Error in clap detection: {e}")
-
-        threading.Thread(target=clap_detection_thread, daemon=True).start()
+    def handle_double_clap(self):
+        """Respond to a double clap."""
+        print("Double clap detected!")
+        self.speak("Hey sir, I'm here to help you out")
 
     def main(self, page: ft.Page):
+        self.page = page  # Save the page reference
         page.title = "Artifix"
-        page.theme_mode = ft.ThemeMode.DARK
-        page.bgcolor = "#000716"
+        page.theme_mode = ft.ThemeMode.LIGHT
+        page.bgcolor = "#1a1a1a"
         page.padding = 0
         page.spacing = 0
-
-        # Create animated status indicator
-        self.status_indicator = self.create_status_indicator()
-
-        def animate_status():
-            while True:
-                self.status_indicator.opacity = 0.3
-                self.status_indicator.update()
-                time.sleep(1)
-                self.status_indicator.opacity = 1
-                self.status_indicator.update()
-                time.sleep(1)
-
-        # System info containers
-        system_info = ft.Container(
-            content=self.create_system_details(),
-            padding=8,
-            bgcolor="#007AFF22",
-            border_radius=5,
-        )
-
-        time_display = ft.Container(
-            content=ft.Text(self.get_system_time(), color="#007AFF", size=12),
-            padding=8,
-            bgcolor="#007AFF22",
-            border_radius=5,
-        )
-
-        def update_system_info():
-            while True:
-                try:
-                    system_info.content = self.create_system_details()
-                    time_display.content = ft.Text(self.get_system_time(), color="#007AFF", size=12)
-                    system_info.update()
-                    time_display.update()
-                except Exception as e:
-                    print(f"Error updating system info: {e}")
-                time.sleep(1)
-
-        # Start background threads
-        threading.Thread(target=animate_status, daemon=True).start()
-        threading.Thread(target=update_system_info, daemon=True).start()
-
-        # Header
+        
+        # Header configuration
         header = ft.Container(
-            content=ft.Row([
-                ft.Row([
-                    self.status_indicator,
-                    ft.Text("Artifix INTERFACE", size=24, weight=ft.FontWeight.BOLD, color="#007AFF"),
-                ], spacing=15),
-                ft.Row([
-                    ft.Container(
-                        bgcolor="#007AFF22",
-                        border_radius=5,
-                        padding=8,
-                        content=ft.Text("SYSTEM ACTIVE", color="#007AFF", size=12),
+            content=ft.Row(
+                controls=[
+                    ft.CircleAvatar(
+                        content=ft.Text("A", size=20, weight=ft.FontWeight.BOLD),
+                        color=ft.colors.WHITE,
+                        bgcolor="#007AFF",
+                        radius=20,
                     ),
-                    time_display,
-                    system_info,
-                ], spacing=10),
-            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    ft.Text("Artifix", size=24, weight=ft.FontWeight.BOLD, color=ft.colors.WHITE),
+                    ft.Container(
+                        content=ft.Row(
+                            controls=[
+                                ft.Container(
+                                    width=8,
+                                    height=8,
+                                    bgcolor="#4CAF50",
+                                    border_radius=ft.border_radius.all(4),
+                                ),
+                                ft.Text("Online", color="#4CAF50", size=12),
+                            ],
+                            spacing=5,
+                        ),
+                        margin=ft.margin.only(left=10),
+                    ),
+                ],
+                alignment=ft.MainAxisAlignment.START,
+            ),
             padding=20,
-            bgcolor="#001429",
+            bgcolor="#2d2d2d",
         )
 
-        # Chat area
-        self.chat = ft.ListView(expand=True, spacing=15, padding=20, auto_scroll=True)
+        # Chat container setup
+        self.chat = ft.ListView(
+            expand=True,
+            spacing=15,
+            padding=20,
+            auto_scroll=True,
+        )
 
-        # Typing indicator
-        self.typing_indicator = ft.Row([ft.Container(
-            content=ft.Row([*[
-                ft.Container(width=4, height=4, bgcolor="#007AFF", border_radius=2, animate_opacity=ft.animation.Animation(300, "easeInOut"), opacity=0.3)
-                for _ in range(3)
-            ]], spacing=5),
-            visible=False,
-            padding=10,
-            bgcolor="#001429",
-            border_radius=20,
-        )])
+        # Typing indicator setup
+        self.typing_indicator = ft.Row(
+            controls=[
+                ft.Container(
+                    content=ft.Row(
+                        controls=[
+                            ft.Container(
+                                width=8,
+                                height=8,
+                                bgcolor="#007AFF",
+                                border_radius=ft.border_radius.all(4),
+                                animate=ft.animation.Animation(300, "bounceOut"),
+                            ),
+                            ft.Container(
+                                width=8,
+                                height=8,
+                                bgcolor="#007AFF",
+                                border_radius=ft.border_radius.all(4),
+                                animate=ft.animation.Animation(300, "bounceOut"),
+                                opacity=0.7,
+                            ),
+                            ft.Container(
+                                width=8,
+                                height=8,
+                                bgcolor="#007AFF",
+                                border_radius=ft.border_radius.all(4),
+                                animate=ft.animation.Animation(300, "bounceOut"),
+                                opacity=0.4,
+                            ),
+                        ],
+                        spacing=5,
+                    ),
+                    visible=False,
+                    padding=10,
+                    bgcolor="#2d2d2d",
+                    border_radius=ft.border_radius.all(20),
+                )
+            ],
+        )
 
-        # Input field
+        # Input field setup
         self.input_field = ft.TextField(
-            hint_text="Enter command...",
-            border_radius=25,
+            hint_text="Message Artifix...",
+            border_radius=30,
             min_lines=1,
             max_lines=5,
             filled=True,
             expand=True,
-            bgcolor="#001429",
-            color="#007AFF",
-            cursor_color="#007AFF",
-            border_color="#007AFF22",
-            hint_style=ft.TextStyle(color="#007AFF66"),
+            bgcolor="#2d2d2d",
+            color=ft.colors.WHITE,
+            cursor_color=ft.colors.WHITE,
+            border_color=ft.colors.TRANSPARENT,
+            hint_style=ft.TextStyle(color="#666666"),
             on_submit=self.send_message,
-            text_size=14,
+            text_size=16,
         )
 
-        # Action buttons
+        # Buttons configuration
         send_button = ft.IconButton(
-            icon=ft.icons.SEND_ROUNDED,
+            icon=ft.Icons.SEND_ROUNDED,
             icon_color="#007AFF",
             tooltip="Send message",
             on_click=self.send_message,
         )
 
         voice_button = ft.IconButton(
-            icon=ft.icons.MIC,
+            icon=ft.Icons.MIC,
             icon_color="#007AFF",
-            tooltip="Voice command",
+            tooltip="Voice input",
             on_click=self.start_voice_input,
         )
 
-        # Input container
+        # Input container for buttons and text field
         input_container = ft.Container(
-            content=ft.Row([voice_button, self.input_field, send_button], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-            padding=ft.padding.only(left=15, right=15, bottom=15, top=10),
-            bgcolor="#000716",
-            border=ft.border.all(1, "#007AFF33"),
-            border_radius=30,
+            content=ft.Row(
+                controls=[
+                    voice_button,
+                    self.input_field,
+                    send_button,
+                ],
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            ),
+            padding=ft.padding.only(left=20, right=20, bottom=20, top=10),
+            bgcolor="#1a1a1a",
         )
 
-        # Add elements to page
-        page.add(header, ft.Container(content=self.chat, expand=True, bgcolor="#000716"), self.typing_indicator, input_container)
+        # Add components to the page
+        page.add(
+            header,
+            ft.Container(
+                content=self.chat,
+                expand=True,
+                bgcolor="#1a1a1a",
+            ),
+            self.typing_indicator,
+            input_container,
+        )
 
         # Welcome message
-        self.add_message("Initializing Artifix interface... Welcome, sir. How may I assist you today?", False)
+        self.add_message("Hello! I'm Artifix, your AI assistant. How can I help you today?", False)
 
     def add_message(self, message: str, is_user: bool):
-        message_container = ft.Container(
-            content=ft.Column([
-                ft.Text("USER" if is_user else "Artifix", size=10, color="#007AFF", weight=ft.FontWeight.BOLD),
-                ft.Text(message, size=14, color="#FFFFFF", selectable=True, no_wrap=False, max_lines=None),
-                ft.Text(self.get_system_time(), size=9, color="#007AFF88"),
-            ], spacing=5),
-            bgcolor="#001429",
-            padding=15,
-            border_radius=15,
-            border=ft.border.all(1, "#007AFF33"),
-            margin=ft.margin.only(left=50 if is_user else 0, right=0 if is_user else 50),
-            width=400,  # Fixed width for better control
-            animate_opacity=ft.animation.Animation(500, "easeOutCubic"),
-            opacity=0,
-        )
-
+        """Add a message to the chat."""
         self.chat.controls.append(
-            ft.Row([message_container], alignment=ft.MainAxisAlignment.END if is_user else ft.MainAxisAlignment.START)
+            ft.Row(
+                controls=[
+                    ft.Container(
+                        content=ft.Column(
+                            controls=[
+                                ft.Text(
+                                    "You" if is_user else "Artifix",
+                                    size=12,
+                                    color="#666666",
+                                    weight=ft.FontWeight.BOLD,
+                                ),
+                                ft.Text(
+                                    message,
+                                    size=16,
+                                    color="#ffffff" if is_user else "#000000",
+                                    selectable=True,
+                                ),
+                                ft.Text(
+                                    time.strftime("%H:%M"),
+                                    size=10,
+                                    color="#666666",
+                                ),
+                            ],
+                            spacing=5,
+                        ),
+                        bgcolor="#007AFF" if is_user else "#e4e4e4",
+                        padding=15,
+                        border_radius=ft.border_radius.all(20),
+                        margin=ft.margin.only(
+                            left=50 if is_user else 0,
+                            right=0 if is_user else 50,
+                        ),
+                        width=self.page.width * 0.5,  # Set width to 50% of page width
+                    )
+                ],
+                alignment=ft.MainAxisAlignment.END if is_user else ft.MainAxisAlignment.START,
+            )
         )
-        message_container.opacity = 1
         self.chat.update()
 
+    def show_typing_indicator(self, show: bool):
+        """Control visibility of typing indicator."""
+        self.typing_indicator.controls[0].visible = show
+        self.typing_indicator.update()
+
     def speak(self, text: str):
-        def speech_task():
-            if self.speech_lock.acquire(blocking=False):
+        """Speak the provided text, silently reinitializing the engine if it fails."""
+        if self.speech_lock.acquire(blocking=False):
+            try:
+                # If the engine is not initialized or not working, reinitialize it
+                if not self.engine or not hasattr(self.engine, 'say'):
+                    self.setup_speech_engine()
+
+                # Speak the text
+                self.engine.say(text)
+                self.engine.runAndWait()
+            except Exception as e:
+                print(f"Speech error: {e}")
                 try:
-                    if not self.engine:
-                        self.setup_speech_engine()
+                    # Reinitialize engine if it fails
+                    self.setup_speech_engine()
                     self.engine.say(text)
                     self.engine.runAndWait()
-                except Exception as e:
-                    print(f"Speech error: {e}")
-                    self.setup_speech_engine()
-                finally:
-                    self.speech_lock.release()
+                except Exception as inner_exception:
+                    print(f"Reinitialization failed: {inner_exception}")
+            finally:
+                self.speech_lock.release()
 
-        threading.Thread(target=speech_task, daemon=True).start()
+    def process_bot_response(self, user_message: str):
+        """Process response from the bot."""
+        self.show_typing_indicator(True)
+        try:
+            response = query_handle.handle(user_message.lower())
+            time.sleep(0.5)
+            self.show_typing_indicator(False)
+            self.add_message(response, False)
+            threading.Thread(target=self.speak, args=(response,), daemon=True).start()
+        except Exception as e:
+            self.show_typing_indicator(False)
+            self.add_message(f"Sorry, I encountered an error: {str(e)}", False)
 
     def send_message(self, e):
+        """Send user message."""
         user_message = self.input_field.value
         if not user_message:
             return
-
+        
         self.input_field.value = ""
         self.input_field.update()
         self.add_message(user_message, True)
         threading.Thread(target=self.process_bot_response, args=(user_message,), daemon=True).start()
 
-    def process_bot_response(self, user_message: str):
-        self.show_typing_indicator(True)
-        try:
-            response = self.handle_message(user_message)
-            time.sleep(0.5)  # Simulate processing time
-            self.show_typing_indicator(False)
-            self.add_message(response, False)
-            self.speak(response)
-        except Exception as e:
-            self.show_typing_indicator(False)
-            error_msg = f"System error detected: {str(e)}"
-            self.add_message(error_msg, False)
-            self.speak("I encountered an error processing your request")
-
-    def handle_message(self, message: str) -> str:
-        """Process user messages and return appropriate responses."""
-        message = message.lower().strip()
-
-        if "hello" in message or "hi" in message:
-            return "Hello! How can I assist you today?"
-        elif "how are you" in message:
-            return "I'm functioning optimally. Thank you for asking. How may I help you?"
-        elif "goodbye" in message or "bye" in message:
-            return "Goodbye! Feel free to return if you need assistance."
-        elif "time" in message:
-            return f"The current time is {self.get_system_time()}"
-        elif "battery" in message:
-            battery = psutil.sensors_battery()
-            if battery:
-                return f"Battery is at {battery.percent}% and {'charging' if battery.power_plugged else 'discharging'}."
-            return "Battery information is not available."
-        elif "system" in message:
-            cpu = psutil.cpu_percent()
-            memory = psutil.virtual_memory()
-            return f"System Status:\nCPU Usage: {cpu}%\nMemory Usage: {memory.percent}%"
-        else:
-            return "I'm not sure how to respond to that. Could you please rephrase or ask something else?"
-
-    def show_typing_indicator(self, show: bool):
-        for i, dot in enumerate(self.typing_indicator.controls[0].content.controls):
-            dot.opacity = 0.3 + (i * 0.2) if show else 0.3
-        self.typing_indicator.controls[0].visible = show
-        self.typing_indicator.update()
-
     def start_voice_input(self, e):
+        """Start voice input."""
         def voice_input_thread():
             with sr.Microphone() as source:
-                self.add_message("Voice recognition activated. Awaiting input...", False)
+                self.add_message("Listening...", False)
                 try:
                     audio = self.recognizer.listen(source, timeout=5)
                     text = self.recognizer.recognize_google(audio)
                     self.add_message(text, True)
                     self.process_bot_response(text)
                 except sr.WaitTimeoutError:
-                    self.add_message("Voice input timeout. Please try again.", False)
+                    self.add_message("No speech detected", False)
                 except sr.UnknownValueError:
-                    self.add_message("Voice command not recognized. Please try again.", False)
+                    self.add_message("Could not understand audio", False)
                 except Exception as ex:
-                    self.add_message(f"System error in voice recognition: {str(ex)}", False)
+                    self.add_message(f"Error: {str(ex)}", False)
 
         threading.Thread(target=voice_input_thread, daemon=True).start()
 
 def main():
-    app = ArtifixChat()
+    app = ChatApp()
     ft.app(target=app.main)
 
 if __name__ == "__main__":
