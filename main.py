@@ -57,7 +57,7 @@ class ChatApp:
         """Respond to a single clap."""
         print("Single clap detected!")
         self.speak("Hello! How can I assist you today?")
-
+        
     def handle_double_clap(self):
         """Respond to a double clap."""
         print("Double clap detected!")
