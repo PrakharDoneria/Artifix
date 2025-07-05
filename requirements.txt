@@ -10,3 +10,15 @@ clap-detector
 python-dotenv
 psutil
 sarvamai
+# New dependencies for enhanced features
+opencv-python
+Pillow
+requests
+GitPython
+selenium
+webdriver-manager
+# Optional OCR support
+# pytesseract
+# Optional PDF processing
+# PyPDF2
+# pdfplumber
