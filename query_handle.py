@@ -1,7 +1,6 @@
-import api.llm as ai
 import api.wikipedia as wiki
-import api.gemini as gemini
 import datetime
+import api.sarvam as sarvam
 
 def handle(query):
 
@@ -21,12 +20,9 @@ def handle(query):
     elif 'love' in query:
         return 'Love is that for which a person can wait for years, holding onto the pain and hope.'
 
-    elif any(phrase in query for phrase in ['explain', 'what do', 'how can']):
-        return gemini.ask(query)
-
     else:
         try:
-            ans = ai.compute(query)
-            return ans
+            response = sarvam.ask(query)
+            return response
         except Exception as e:
-            return f"Error while processing query: {str(e)}"
+            print(f"Error handling query: {e}")

@@ -1,2 +1,5 @@
-2024-12-28 02:09:06,684 - clapDetector.clapDetector - INFO - Audio has been initialized.
-2024-12-28 02:09:09,110 - clapDetector.clapDetector - DEBUG - Clap detected! 5 peaks found
+2025-07-06 01:47:29,384 - clapDetector.clapDetector - INFO - Audio has been initialized.
+2025-07-06 01:47:35,913 - clapDetector.clapDetector - DEBUG - Clap detected! 2 peaks found
+2025-07-06 01:47:36,193 - clapDetector.clapDetector - DEBUG - Clap detected! 4 peaks found
+2025-07-06 01:48:08,126 - clapDetector.clapDetector - INFO - Audio has been initialized.
+2025-07-06 01:48:10,551 - clapDetector.clapDetector - DEBUG - Clap detected! 7 peaks found
