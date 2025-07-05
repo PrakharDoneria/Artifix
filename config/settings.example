@@ -1,0 +1,31 @@
+# Artifix AI Configuration
+
+# API Keys (copy this to api/.env and fill in your keys)
+SARVAM_API_KEY=your_sarvam_api_key_here
+GOOGLE_TRANSLATE_API_KEY=your_google_translate_key_here
+
+# Email Configuration (optional)
+EMAIL_ADDRESS=your_email@example.com
+EMAIL_PASSWORD=your_app_password_here
+SMTP_SERVER=smtp.gmail.com
+IMAP_SERVER=imap.gmail.com
+
+# Slack Configuration (optional)
+SLACK_BOT_TOKEN=xoxb-your-slack-bot-token-here
+
+# Wake Word Settings
+WAKE_WORDS=["hey artifix", "artifix", "hello artifix"]
+WAKE_WORD_SENSITIVITY=0.5
+
+# Voice Settings
+DEFAULT_VOICE_RATE=175
+DEFAULT_VOICE_VOLUME=0.8
+
+# Camera Settings
+CAMERA_INDEX=0
+ENABLE_CAMERA=true
+
+# System Settings
+ENABLE_SYSTEM_CONTROL=true
+ENABLE_DEVELOPER_TOOLS=true
+LOG_LEVEL=INFO
