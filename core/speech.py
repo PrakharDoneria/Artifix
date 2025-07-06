@@ -1,4 +1,29 @@
-import pyttsx3
+try:
+    import pyttsx3
+except ImportError:
+    # Mock pyttsx3 for development
+    class MockPytTsx3:
+        @staticmethod
+        def init():
+            return MockEngine()
+    pyttsx3 = MockPytTsx3()
+
+class MockEngine:
+    def __init__(self):
+        self.properties = {}
+    
+    def getProperty(self, name):
+        return self.properties.get(name)
+    
+    def setProperty(self, name, value):
+        self.properties[name] = value
+    
+    def say(self, text):
+        print(f"TTS: {text}")
+    
+    def runAndWait(self):
+        pass
+
 import threading
 
 class SpeechEngine:
