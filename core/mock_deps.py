@@ -133,7 +133,7 @@ class MockFlet:
         BLUE = "#007AFF"
         TRANSPARENT = "transparent"
     
-    # Create static instances for border_radius, padding, and margin
+    # Create static instances for border_radius, padding, margin, and alignment
     border_radius = type('BorderRadius', (), {
         'all': lambda self, radius: radius
     })()
@@ -144,6 +144,18 @@ class MockFlet:
     
     margin = type('Margin', (), {
         'only': lambda self, **kwargs: kwargs
+    })()
+    
+    alignment = type('Alignment', (), {
+        'center': 'center',
+        'topLeft': 'topLeft',
+        'topCenter': 'topCenter',
+        'topRight': 'topRight',
+        'centerLeft': 'centerLeft',
+        'centerRight': 'centerRight',
+        'bottomLeft': 'bottomLeft', 
+        'bottomCenter': 'bottomCenter',
+        'bottomRight': 'bottomRight'
     })()
     
     class TextStyle:
