@@ -39,25 +39,38 @@ class AudioVisualizer:
         self.bars = []
         self.time_offset = 0
         
-        # Create visualization container
-        self.canvas = ft.Canvas(
-            width=self.width,
-            height=self.height
-        )
-        
-        self.container = ft.Container(
-            content=self.canvas,
-            width=self.width,
-            height=self.height,
-            bgcolor=ft.colors.TRANSPARENT,
-            border_radius=ft.border_radius.all(10),
-            visible=False
-        )
-        
         # Initialize bars
         self.num_bars = 20
         self.bar_width = self.width / self.num_bars * 0.6
         self.bar_spacing = self.width / self.num_bars
+        
+        # Create visualization using Row of Containers (instead of Canvas)
+        self.bar_containers = []
+        for i in range(self.num_bars):
+            bar = ft.Container(
+                width=self.bar_width,
+                height=10,  # Initial small height
+                bgcolor="#007AFF",
+                border_radius=ft.border_radius.all(2),
+                margin=ft.margin.only(left=1, right=1) if hasattr(ft, 'margin') else None
+            )
+            self.bar_containers.append(bar)
+        
+        self.bars_row = ft.Row(
+            controls=self.bar_containers,
+            alignment=ft.MainAxisAlignment.CENTER if hasattr(ft, 'MainAxisAlignment') else None,
+            spacing=2
+        )
+        
+        self.container = ft.Container(
+            content=self.bars_row,
+            width=self.width,
+            height=self.height,
+            bgcolor=ft.colors.TRANSPARENT if hasattr(ft.colors, 'TRANSPARENT') else None,
+            border_radius=ft.border_radius.all(10) if hasattr(ft, 'border_radius') else None,
+            visible=False,
+            alignment=ft.alignment.center if hasattr(ft, 'alignment') else None
+        )
         
     def start_visualization(self):
         """Start the audio visualization animation"""
@@ -90,8 +103,12 @@ class AudioVisualizer:
         while self.is_active:
             try:
                 self._update_bars()
-                if hasattr(self.canvas, 'update'):
-                    self.canvas.update()
+                # Update the container and all bar containers
+                if hasattr(self.container, 'update'):
+                    self.container.update()
+                for bar in self.bar_containers:
+                    if hasattr(bar, 'update'):
+                        bar.update()
                 time.sleep(0.05)  # ~20 FPS
                 self.time_offset += 0.2
             except Exception as e:
@@ -100,38 +117,24 @@ class AudioVisualizer:
     
     def _update_bars(self):
         """Update the visualization bars with Siri-like animation"""
-        if not hasattr(self.canvas, 'shapes'):
+        if not self.bar_containers:
             return
             
-        # Clear previous shapes
-        self.canvas.shapes.clear()
-        
         # Generate new bar heights with smooth wave-like motion
-        for i in range(self.num_bars):
+        for i in range(min(self.num_bars, len(self.bar_containers))):
             # Create wave pattern with some randomness
             base_height = 0.3 + 0.4 * math.sin(self.time_offset + i * 0.5)
             noise = 0.2 * math.sin(self.time_offset * 3 + i * 1.2)
             bar_height = max(0.1, base_height + noise)
             
-            # Scale to canvas height
-            actual_height = bar_height * self.height * 0.8
+            # Scale to container height (minimum 5px, maximum 80% of container height)
+            actual_height = max(5, bar_height * self.height * 0.8)
             
-            # Calculate bar position
-            x = i * self.bar_spacing + (self.bar_spacing - self.bar_width) / 2
-            y = (self.height - actual_height) / 2
-            
-            # Create bar shape (simplified for mock)
-            bar_shape = {
-                'type': 'rectangle',
-                'x': x,
-                'y': y,
-                'width': self.bar_width,
-                'height': actual_height,
-                'color': self._get_bar_color(bar_height)
-            }
-            
-            if hasattr(self.canvas, 'shapes'):
-                self.canvas.shapes.append(bar_shape)
+            # Update the bar container
+            if i < len(self.bar_containers):
+                bar_container = self.bar_containers[i]
+                bar_container.height = actual_height
+                bar_container.bgcolor = self._get_bar_color(bar_height)
     
     def _get_bar_color(self, intensity):
         """Get bar color based on intensity (Siri-like gradient)"""
